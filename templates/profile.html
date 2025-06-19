@@ -13,7 +13,7 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #f5576c 75%, #4facfe 100%);
+            background: linear-gradient(135deg, #667eea 0%, #5cca97 25%, #72395a 50%, #f5576c 75%, #4facfe 100%);
             background-size: 400% 400%;
             animation: gradientShift 15s ease infinite;
             color: white;
@@ -25,6 +25,27 @@
             50% { background-position: 100% 50%; }
             100% { background-position: 0% 50%; }
         }
+
+        /* For screens smaller than 768px */
+        @media (max-width: 768px) {
+        .container {
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        .project-card {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        #mic-icon {
+            bottom: 15px;
+            left: 15px;
+            width: 40px;
+            height: 40px;
+        }
+        }
+
 
         .container {
             max-width: 1200px;
@@ -407,6 +428,31 @@
             font-size: 1.2rem;
         }
 
+        @keyframes micPulse {
+    0% { transform: scale(1); }
+    25% { transform: scale(1.2); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.vibrate {
+    animation: micPulse 0.3s ease-in-out;
+}
+
+
+
+@keyframes micGlow {
+    0% { transform: scale(1); box-shadow: 0 0 0 rgba(255,255,255,0); }
+    30% { transform: scale(1.2); box-shadow: 0 0 12px rgba(255,255,255,0.9); }
+    60% { transform: scale(0.95); box-shadow: 0 0 6px rgba(255,255,255,0.5); }
+    100% { transform: scale(1); box-shadow: 0 0 0 rgba(255,255,255,0); }
+}
+.mic-feedback {
+    animation: micGlow 0.3s ease-in-out;
+}
+
+
         .contact-form {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
@@ -538,156 +584,6 @@
 </head>
 
 <body>
-    <script>
-    const img = document.getElementById('profile-photo');
-    const fallback = document.getElementById('profile-initials');
-
-    img.onload = () => {
-        img.style.display = 'block';
-        fallback.style.display = 'none';
-    };
-
-    img.onerror = () => {
-        img.style.display = 'none';
-        fallback.style.display = 'flex';
-    };
-</script>
-
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
-
-<video id="input_video" autoplay muted playsinline style="position: fixed; bottom: 15px; right: 15px; width: 120px; height: 90px; z-index: 999; border: 2px solid #fff; border-radius: 10px; display: none;"></video>
-
-<div id="gesture-status" style="position: fixed; bottom: 115px; right: 15px; background: rgba(0,0,0,0.7); color: #0f0; padding: 5px 10px; font-size: 14px; font-family: monospace; border-radius: 5px; z-index: 999;">Gesture: OFF</div>
-
-<button id="toggle-gesture" style="position: fixed; bottom: 220px; right: 15px; z-index: 999; padding: 8px 15px; font-weight: bold; background: #4ecdc4; color: white; border: none; border-radius: 8px; cursor: pointer;">Enable Gestures</button>
-
-<div id="countdown" style="position: fixed; bottom: 160px; right: 15px; z-index: 999; font-size: 16px; font-family: monospace; background: rgba(0,0,0,0.8); color: #ffc107; padding: 5px 10px; border-radius: 5px; display: none;">1.5s</div>
-
-<script>
-    const videoElement = document.getElementById('input_video');
-    const gestureStatus = document.getElementById('gesture-status');
-    const toggleButton = document.getElementById('toggle-gesture');
-    const countdown = document.getElementById('countdown');
-
-    let gestureEnabled = false;
-    let camera = null;
-    let fingerYHistory = [];
-    const intervalMs = 1500;
-    const historySize = 10;
-    let tickTimer = null;
-    let timerElapsed = 0;
-
-    const hands = new Hands({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
-    });
-
-    hands.setOptions({
-        maxNumHands: 1,
-        modelComplexity: 1,
-        minDetectionConfidence: 0.9,
-        minTrackingConfidence: 0.9
-    });
-
-    function getAverageFingerY(landmarks) {
-        const fingerTips = [4, 8, 12, 16, 20];
-        const sum = fingerTips.reduce((acc, idx) => acc + landmarks[idx].y, 0);
-        return sum / fingerTips.length;
-    }
-
-    function checkFingerGesture() {
-        if (!gestureEnabled || fingerYHistory.length < 2) return;
-
-        const startY = fingerYHistory[0];
-        const endY = fingerYHistory[fingerYHistory.length - 1];
-        const delta = endY - startY;
-
-        if (Math.abs(delta) > 0.05) {
-            if (delta > 0.05) {
-                window.scrollBy({ top: 400, behavior: 'smooth' });
-                gestureStatus.textContent = 'Gesture: ⬇ Finger Scroll Down';
-            } else {
-                window.scrollBy({ top: -400, behavior: 'smooth' });
-                gestureStatus.textContent = 'Gesture: ⬆ Finger Scroll Up';
-            }
-        } else {
-            gestureStatus.textContent = 'Gesture: ON (No Action)';
-        }
-
-        fingerYHistory = [];
-    }
-
-    function startCountdownLoop() {
-        let tickRate = 100;
-        timerElapsed = 0;
-        if (tickTimer) clearInterval(tickTimer);
-
-        tickTimer = setInterval(() => {
-            if (!gestureEnabled) {
-                countdown.style.display = 'none';
-                clearInterval(tickTimer);
-                return;
-            }
-
-            timerElapsed += tickRate;
-            const remaining = intervalMs - timerElapsed;
-
-            if (remaining <= 0) {
-                timerElapsed = 0;
-                checkFingerGesture();
-            }
-
-            const secondsLeft = Math.max(remaining / 1000, 0).toFixed(1);
-            countdown.innerText = `${secondsLeft}s`;
-            countdown.style.display = 'block';
-        }, tickRate);
-    }
-
-    function onResults(results) {
-        if (!gestureEnabled || !results.multiHandLandmarks.length) return;
-        const hand = results.multiHandLandmarks[0];
-        const avgY = getAverageFingerY(hand);
-        fingerYHistory.push(avgY);
-        if (fingerYHistory.length > historySize) fingerYHistory.shift();
-    }
-
-    function startCamera() {
-        if (camera) return;
-        videoElement.style.display = 'block';
-        camera = new Camera(videoElement, {
-            onFrame: async () => await hands.send({ image: videoElement }),
-            width: 640,
-            height: 480
-        });
-        hands.onResults(onResults);
-        camera.start();
-    }
-
-    function stopCamera() {
-        if (!camera) return;
-        camera.stop();
-        camera = null;
-        videoElement.style.display = 'none';
-    }
-
-    toggleButton.onclick = () => {
-        gestureEnabled = !gestureEnabled;
-        gestureStatus.textContent = `Gesture: ${gestureEnabled ? 'ON' : 'OFF'}`;
-        toggleButton.textContent = gestureEnabled ? 'Disable Gestures' : 'Enable Gestures';
-        fingerYHistory = [];
-        if (gestureEnabled) {
-            startCamera();
-            startCountdownLoop();
-        } else {
-            stopCamera();
-            if (tickTimer) clearInterval(tickTimer);
-            countdown.style.display = 'none';
-        }
-    };
-</script>
-
-
     <header>
         <nav class="container">
             <div class="logo">My Portfolio</div>
@@ -724,10 +620,10 @@
 
         <!-- About Text and Skills -->
         <div style="flex: 2;" class="animate-on-scroll">
-            <p style="font-size: 1.1rem; line-height: 1.8; color: #333;">
+            <p style="font-size: 1.1rem; line-height: 1.8; color: #f5efef;">
                 I’m <strong>Durga Prasad Naarla</strong>, a final-year Computer Science student specializing in Artificial Intelligence. I design and develop elegant full-stack web applications and intelligent systems that combine aesthetics with logic.
             </p>
-            <p style="font-size: 1.1rem; margin-top: 1rem; color: #444;">
+            <p style="font-size: 1.1rem; margin-top: 1rem; color: #f5efef;">
                 My interests lie in human-computer interaction, gesture-based UX, intelligent automation, and delivering real-world business value through clean code and intuitive design.
             </p>
 
@@ -740,7 +636,6 @@
                     <div class="skill-tags">
                         <span class="skill-tag">Python</span>
                         <span class="skill-tag">Java</span>
-                        <span class="skill-tag">C</span>
                     </div>
                 </div>
 
@@ -751,7 +646,15 @@
                         <span class="skill-tag">CSS</span>
                         <span class="skill-tag">JavaScript</span>
                         <span class="skill-tag">Flask</span>
-                        <span class="skill-tag">Firebase</span>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <div class="skill-label">DataBase Technologies</div>
+                    <div class="skill-tags">
+                        <span class="skill-tag">FireBase</span>
+                        <span class="skill-tag">MySQL</span>
+                        <span class="skill-tag">SupaBase</span>
                     </div>
                 </div>
 
@@ -760,7 +663,7 @@
                     <div class="skill-tags">
                         <span class="skill-tag">Git</span>
                         <span class="skill-tag">GitHub</span>
-                        <span class="skill-tag">MySQL</span>
+                        <span class="skill-tag">Google-Colab</span>
                         <span class="skill-tag">Render</span>
                     </div>
                 </div>
@@ -768,7 +671,7 @@
                 <div>
                     <div class="skill-label">AI & Libraries</div>
                     <div class="skill-tags">
-                        <span class="skill-tag">MediaPipe</span>
+                        <span class="skill-tag">Tensorflow</span>
                         <span class="skill-tag">OpenCV</span>
                         <span class="skill-tag">NumPy</span>
                         <span class="skill-tag">Pandas</span>
@@ -779,19 +682,38 @@
     </div>
 </section>
 
+<div id="mic-icon" style="
+    position: fixed;
+    bottom: 25px;
+    left: 25px;
+    background: #f4f4f4;
+    border: 2px solid #ccc;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="#333" width="22" height="22" viewBox="0 0 24 24">
+        <path d="M12 14c1.654 0 3-1.346 3-3V5c0-1.654-1.346-3-3-3S9 3.346 9 5v6c0 1.654 1.346 3 3 3zm5-3c0 2.757-2.243 5-5 5s-5-2.243-5-5H5c0 3.53 2.61 6.432 6 6.92V21h2v-3.08c3.39-.488 6-3.39 6-6.92h-2z"/>
+    </svg>
+</div>
+
+<br><br>
 
     <section id="projects" class="container">
         <h2 class="section-title animate-on-scroll">Featured Projects</h2>
         <div class="projects-grid">
             <div class="project-card animate-on-scroll">
-                <h3>Personal Blog Platform</h3>
-                <p>A full-featured blogging platform with user authentication, rich text editor, and responsive design. Features include post creation, editing, commenting system, and user profiles.</p>
+                <h3>Anonymous Messenging Mobile Application</h3>
+                <p> An Anonymous application where people send real time messages without any identification needed(To protect Privacy)</p>
                 <div class="tech-stack">
-                    <span class="tech-tag">Django</span>
-                    <span class="tech-tag">Python</span>
-                    <span class="tech-tag">MySQL</span>
-                    <span class="tech-tag">HTML/CSS</span>
-                    <span class="tech-tag">JavaScript</span>
+                    <span class="tech-tag">Java</span>
+                    <span class="tech-tag">FireBase</span>
+                    <span class="tech-tag">Google Cloud and SDK</span>
+                    <span class="tech-tag">Gradle & AS</span>
                 </div>
                 <div class="project-links">
                     <a href="#" class="project-link">Live Demo</a>
@@ -800,13 +722,14 @@
             </div>
             
             <div class="project-card animate-on-scroll">
-                <h3>AI Image Classifier</h3>
-                <p>Machine learning project using TensorFlow to classify images with 95% accuracy. Implemented CNN architecture with data augmentation and transfer learning techniques.</p>
+                <h3>Andhra Cuisine(Tigers-Truck) website</h3>
+                <p>A Full Stack website developed for An Andhra Native Cuisine(Restaurant) named Tigers-Truck to deliver and provide Quality and Effective Services to the Customers</p>
                 <div class="tech-stack">
                     <span class="tech-tag">Python</span>
-                    <span class="tech-tag">TensorFlow</span>
                     <span class="tech-tag">Flask</span>
-                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">HTML5</span>
+                    <span class="tech-tag">CSS</span>
+                    <span class="tech-tag">MySQL</span>
                 </div>
                 <div class="project-links">
                     <a href="#" class="project-link">Live Demo</a>
@@ -815,13 +738,13 @@
             </div>
             
             <div class="project-card animate-on-scroll">
-                <h3>Smart Task Manager</h3>
-                <p>A productivity app with AI-powered task prioritization, real-time collaboration, and advanced analytics. Built with modern web technologies and cloud integration.</p>
+                <h3>Human Violence Detection System</h3>
+                <p> An AI based real time Human Violence Detection System developed to prevent and predict violence in public and isloated places.</p>
                 <div class="tech-stack">
-                    <span class="tech-tag">React</span>
-                    <span class="tech-tag">Node.js</span>
-                    <span class="tech-tag">Firebase</span>
                     <span class="tech-tag">Python</span>
+                    <span class="tech-tag">Tensorflow</span>
+                    <span class="tech-tag">OpenCV</span>
+                    <span class="tech-tag">Human-Violence-Dataset</span>
                 </div>
                 <div class="project-links">
                     <a href="#" class="project-link">Live Demo</a>
@@ -830,7 +753,7 @@
             </div>
             
             <div class="project-card animate-on-scroll">
-    <h3>Gesture-Controlled Portfolio Interface</h3>
+    <h3>Gesture and Audio Controlled Portfolio Interface</h3>
     <p>Next-generation personal portfolio that allows users to scroll and navigate using hand gestures via webcam. Built with AI-powered gesture recognition using MediaPipe, it delivers an immersive, touchless experience with real-time visual feedback, swipe animations, and toggle control for accessibility.</p>
     <div class="tech-stack">
         <span class="tech-tag">HTML</span>
@@ -872,28 +795,28 @@
                     <div class="contact-icon">📧</div>
                     <div>
                         <h4>Email</h4>
-                        <p>durgaprasad.naarla@gmail.com</p>
+                        <a href="mailto:durgaprasad.naarla@gmail.com" style="color: #4ecdc4;">durgaprasad.naarla@gmail.com</a>
                     </div>
                 </div>
                 <div class="contact-item">
                     <div class="contact-icon">💼</div>
                     <div>
                         <h4>LinkedIn</h4>
-                        <a href="#" style="color: #4ecdc4;">https://www.linkedin.com/in/durga-prasad-naarla-544784290</a>
+                        <a href="https://www.linkedin.com/in/durga-prasad-naarla-544784290" style="color: #4ecdc4;">https://www.linkedin.com/in/durga-prasad-naarla-544784290</a>
                     </div>
                 </div>
                 <div class="contact-item">
                     <div class="contact-icon">🐙</div>
                     <div>
                         <h4>GitHub</h4>
-                        <a href="#" style="color: #4ecdc4;">https://github.com/DurgaPrasadNaarla</a>
+                        <a href="https://github.com/DurgaPrasadNaarla" style="color: #4ecdc4;">https://github.com/DurgaPrasadNaarla</a>
                     </div>
                 </div>
                 <div class="contact-item">
                     <div class="contact-icon">🌐</div>
                     <div>
                         <h4>Portfolio</h4>
-                        <a href="#" style="color: #4ecdc4;">myportfolio.com</a>
+                        <a href="https://gesturess-based-portfolio.onrender.com/" style="color: #4ecdc4;">https://gesturess-based-portfolio.onrender.com/</a>
                     </div>
                 </div>
             </div>
@@ -1021,5 +944,212 @@
             });
         });
     </script>
+
+    <!-- Mic Icon (static) -->
+<div id="mic-icon" title="Say: scroll up / scroll down" style="
+    position: fixed;
+    bottom: 25px;
+    left: 25px;
+    background: #f4f4f4;
+    border: 2px solid #ccc;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    cursor: help;
+">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="#333" width="22" height="22" viewBox="0 0 24 24">
+        <path d="M12 14c1.654 0 3-1.346 3-3V5c0-1.654-1.346-3-3-3S9 3.346 9 5v6c0 1.654 1.346 3 3 3zm5-3c0 2.757-2.243 5-5 5s-5-2.243-5-5H5c0 3.53 2.61 6.432 6 6.92V21h2v-3.08c3.39-.488 6-3.39 6-6.92h-2z"/>
+    </svg>
+</div>
+
+<script>
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        const micIcon = document.getElementById('mic-icon');
+
+        function vibrateMic() {
+            micIcon.classList.add('mic-feedback');
+            setTimeout(() => micIcon.classList.remove('mic-feedback'), 400);
+        }
+
+        recognition.onresult = function (event) {
+            const command = event.results[0][0].transcript.trim().toLowerCase();
+            if (command.includes("scroll down") || command.includes("down") || command.includes("downward")) {
+                vibrateMic();
+                window.scrollBy({ top: 400, behavior: "smooth" });
+            } else if (command.includes("scroll up") || command.includes("up") || command.includes("upward") || command.includes("top")) {
+                vibrateMic();
+                window.scrollBy({ top: -400, behavior: "smooth" });
+            }
+        };
+
+        recognition.onend = () => setTimeout(() => recognition.start(), 100);
+        recognition.onerror = () => setTimeout(() => recognition.start(), 100);
+
+        recognition.start();
+    }
+</script>
+
+
+
+
+<!-- Profile Photo Fallback -->
+<script>
+    const img = document.getElementById('profile-photo');
+    const fallback = document.getElementById('profile-initials');
+
+    img.onload = () => {
+        img.style.display = 'block';
+        fallback.style.display = 'none';
+    };
+
+    img.onerror = () => {
+        img.style.display = 'none';
+        fallback.style.display = 'flex';
+    };
+</script>
+
+<!-- MediaPipe Gesture Scroll -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
+
+<video id="input_video" autoplay muted playsinline style="position: fixed; bottom: 15px; right: 15px; width: 120px; height: 90px; z-index: 999; border: 2px solid #fff; border-radius: 10px; display: none;"></video>
+
+<button id="toggle-gesture" style="position: fixed; bottom: 220px; right: 15px; z-index: 999; padding: 8px 15px; font-weight: bold; background: #4ecdc4; color: white; border: none; border-radius: 8px; cursor: pointer;">Enable Gestures</button>
+
+<div id="countdown" style="position: fixed; bottom: 160px; right: 15px; z-index: 999; font-size: 16px; font-family: monospace; background: rgba(0,0,0,0.8); color: #ffc107; padding: 5px 10px; border-radius: 5px; display: none;">1.5s</div>
+
+<script>
+    const videoElement = document.getElementById('input_video');
+    const gestureStatus = document.getElementById('gesture-status');
+    const toggleButton = document.getElementById('toggle-gesture');
+    const countdown = document.getElementById('countdown');
+
+    let gestureEnabled = false;
+    let camera = null;
+    let fingerYHistory = [];
+    const intervalMs = 1500;
+    const historySize = 10;
+    let tickTimer = null;
+    let timerElapsed = 0;
+
+    const hands = new Hands({
+        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+    });
+
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.9,
+        minTrackingConfidence: 0.9
+    });
+
+    function getAverageFingerY(landmarks) {
+        const fingerTips = [4, 8, 12, 16, 20];
+        const sum = fingerTips.reduce((acc, idx) => acc + landmarks[idx].y, 0);
+        return sum / fingerTips.length;
+    }
+
+    function checkFingerGesture() {
+        if (!gestureEnabled || fingerYHistory.length < 2) return;
+
+        const startY = fingerYHistory[0];
+        const endY = fingerYHistory[fingerYHistory.length - 1];
+        const delta = endY - startY;
+
+        if (Math.abs(delta) > 0.05) {
+            if (delta > 0.05) {
+                window.scrollBy({ top: 400, behavior: 'smooth' });
+                gestureStatus.textContent = 'Gesture: ⬇ Finger Scroll Down';
+            } else {
+                window.scrollBy({ top: -400, behavior: 'smooth' });
+                gestureStatus.textContent = 'Gesture: ⬆ Finger Scroll Up';
+            }
+        } else {
+            gestureStatus.textContent = 'Gesture: ON (No Action)';
+        }
+
+        fingerYHistory = [];
+    }
+
+    function startCountdownLoop() {
+        let tickRate = 100;
+        timerElapsed = 0;
+        if (tickTimer) clearInterval(tickTimer);
+
+        tickTimer = setInterval(() => {
+            if (!gestureEnabled) {
+                countdown.style.display = 'none';
+                clearInterval(tickTimer);
+                return;
+            }
+
+            timerElapsed += tickRate;
+            const remaining = intervalMs - timerElapsed;
+
+            if (remaining <= 0) {
+                timerElapsed = 0;
+                checkFingerGesture();
+            }
+
+            const secondsLeft = Math.max(remaining / 1000, 0).toFixed(1);
+            countdown.innerText = `${secondsLeft}s`;
+            countdown.style.display = 'block';
+        }, tickRate);
+    }
+
+    function onResults(results) {
+        if (!gestureEnabled || !results.multiHandLandmarks.length) return;
+        const hand = results.multiHandLandmarks[0];
+        const avgY = getAverageFingerY(hand);
+        fingerYHistory.push(avgY);
+        if (fingerYHistory.length > historySize) fingerYHistory.shift();
+    }
+
+    function startCamera() {
+        if (camera) return;
+        videoElement.style.display = 'block';
+        camera = new Camera(videoElement, {
+            onFrame: async () => await hands.send({ image: videoElement }),
+            width: 640,
+            height: 480
+        });
+        hands.onResults(onResults);
+        camera.start();
+    }
+
+    function stopCamera() {
+        if (!camera) return;
+        camera.stop();
+        camera = null;
+        videoElement.style.display = 'none';
+    }
+
+    toggleButton.onclick = () => {
+        gestureEnabled = !gestureEnabled;
+        toggleButton.textContent = gestureEnabled ? 'Disable Gestures' : 'Enable Gestures';
+        fingerYHistory = [];
+        if (gestureEnabled) {
+            startCamera();
+            startCountdownLoop();
+        } else {
+            stopCamera();
+            if (tickTimer) clearInterval(tickTimer);
+            countdown.style.display = 'none';
+        }
+    };
+</script>
+
 </body>
 </html>
